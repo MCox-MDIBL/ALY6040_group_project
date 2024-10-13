@@ -183,6 +183,25 @@ kruskal_results
 
 
 
+
+#####################
+#
+# Basic visualizations
+#
+#####################
+
+ggplot(balanced_data, aes(x = performance_rating)) +
+  geom_bar(fill = c("darkgreen", "red")) +
+  labs(x = "Performance Rating", 
+       y = "Count", 
+       title = "Distribution of Performance Rating - Balanced") +
+  theme(plot.title = element_text(hjust = 0.5))
+  
+
+
+
+
+
 #####################
 #
 # Naive Bayes 
@@ -239,7 +258,8 @@ confusionMatrix(dt_predictions, dt_test_data$performance_rating)
 rpart.plot(dt_model, nn=TRUE)
 
 # Check inportant variables
-varImp(dt_model)
+# Broken on imbalanced datasets
+#varImp(dt_model)
 
 
 ###############
@@ -250,7 +270,7 @@ varImp(dt_model)
 ###############
 
 # Check distribution of percent_salary_hike by performance_rating
-boxplot(percent_salary_hike ~ performance_rating, data = hr_data)
+#boxplot(percent_salary_hike ~ performance_rating, data = hr_data)
 
 # Cross-validate the decision tree model
 control <- trainControl(method = "cv", number = 10)
@@ -309,12 +329,13 @@ rf_cv_model
 #########################################################################################
 #
 # Attempting to balance classes
-# Random Upsampling to create more minority class entries
+# Random Upsampling to create more minority class entries (performance_rating = 4)
 #
 #########################################################################################
 
 # Class distribution may lead to biased modeling
 table(nb_hr_data$performance_rating)
+
 
 # Create a balanced dataset using random oversampling
 balanced_data <- upSample(nb_hr_data[, -ncol(nb_hr_data)], nb_hr_data$performance_rating)
@@ -379,10 +400,37 @@ dt_balanced_predictions <- predict(dt_balanced_model, newdata = dt_balanced_test
 confusionMatrix(dt_balanced_predictions, dt_balanced_test_data$performance_rating)
 
 # Build tree diagram
-rpart.plot(dt_balanced_model, nn=TRUE)
+rpart.plot(dt_balanced_model, nn=TRUE, cex = 0.65)
 
 # Check inportant variables
 varImp(dt_balanced_model)
+
+
+####################
+#
+# Decision tree visualization
+#
+####################
+
+library(DiagrammeR)
+library(DiagrammeRsvg)
+library(rsvg)
+
+# Function to convert `rpart` tree into a Graphviz-compatible structure
+tree_to_graphviz <- function(model) {
+  capture.output(rpart.plot::rpart.plot(model, type = 4, digits = 2, extra = 104), file = NULL)
+}
+
+# Capture the tree structure in Graphviz format
+graphviz_tree <- tree_to_graphviz(dt_balanced_model)
+
+# Create a DiagrammeR graph object
+graph <- DiagrammeR::grViz(graphviz_tree)
+
+# Render the tree
+DiagrammeRsvg::export_svg(graph) %>% charToRaw() %>% rsvg::rsvg_png("decision_tree_diagram.png")
+
+
 
 
 ###############
@@ -416,7 +464,7 @@ rf_balanced_train_data <- rf_balanced_hr_data[rf_balanced_train_index, ]
 rf_balanced_test_data <- rf_balanced_hr_data[-rf_balanced_train_index, ]
 
 # Train a random forest model
-rf_balanced_model <- randomForest(performance_rating ~ ., data = rf_balanced_train_data, ntree = 500) # Build 500 trees
+rf_balanced_model <- randomForest(performance_rating ~ ., data = rf_balanced_train_data, ntree = 500, localImp = TRUE) # Build 500 trees
 
 # Predict on test data
 rf_balanced_predictions <- predict(rf_balanced_model, newdata = rf_balanced_test_data)
@@ -426,6 +474,28 @@ confusionMatrix(rf_balanced_predictions, rf_balanced_test_data$performance_ratin
 
 # Check variable importance
 importance(rf_balanced_model)
+
+
+####################
+#
+# random forest Decision tree visualization
+#
+####################
+
+# Load the package
+p_load(randomForestExplainer)
+
+# Plot the most important trees from the forest
+explain_forest(rf_balanced_model, interactions = TRUE, data = rf_balanced_hr_data)
+
+
+
+
+
+
+
+
+
 
 ###############
 #
